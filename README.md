@@ -37,6 +37,8 @@ docker-compose up --build
 
 The application includes a modern, responsive web interface for managing transactions:
 
+![Transaction Management Web UI](docs/screenshot.png)
+
 | Feature | Description |
 |---------|-------------|
 | **Transaction List** | Paginated table view with all transaction details |
@@ -46,12 +48,6 @@ The application includes a modern, responsive web interface for managing transac
 | **Real-time Feedback** | Toast notifications for all operations |
 
 **Access**: http://localhost:8080
-
-![Web UI Features]
-- Modern dark theme header with branding
-- Sortable transaction table with type badges
-- Form validation with error messages
-- Responsive design for mobile devices
 
 ## 📋 API Endpoints
 
