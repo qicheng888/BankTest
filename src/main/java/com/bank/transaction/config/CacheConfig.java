@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Cache Configuration
  * 
- * Configures Caffeine cache for high-performance caching.
+ * Configures Caffeine cache for high-performance caching with
+ * optimized settings for cache-data consistency.
  */
 @Configuration
 @EnableCaching
@@ -25,22 +26,48 @@ public class CacheConfig {
     @Value("${app.cache.transaction.max-size:1000}")
     private int maxSize;
 
-    @Value("${app.cache.transaction.expire-after-write-seconds:600}")
+    @Value("${app.cache.transaction.expire-after-write-seconds:300}")
     private int expireAfterWriteSeconds;
+
+    @Value("${app.cache.transaction-list.max-size:100}")
+    private int listCacheMaxSize;
+
+    @Value("${app.cache.transaction-list.expire-after-write-seconds:60}")
+    private int listCacheExpireSeconds;
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager(
-                TRANSACTION_CACHE,
-                TRANSACTION_LIST_CACHE);
-        cacheManager.setCaffeine(caffeineCacheBuilder());
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+
+        // Register caches with different configurations
+        cacheManager.registerCustomCache(TRANSACTION_CACHE,
+                buildTransactionCache().build());
+        cacheManager.registerCustomCache(TRANSACTION_LIST_CACHE,
+                buildListCache().build());
+
         return cacheManager;
     }
 
-    private Caffeine<Object, Object> caffeineCacheBuilder() {
+    /**
+     * Cache configuration for individual transactions.
+     * Longer TTL since individual records change less frequently.
+     */
+    private Caffeine<Object, Object> buildTransactionCache() {
         return Caffeine.newBuilder()
                 .maximumSize(maxSize)
                 .expireAfterWrite(expireAfterWriteSeconds, TimeUnit.SECONDS)
+                .recordStats();
+    }
+
+    /**
+     * Cache configuration for transaction lists.
+     * Shorter TTL to ensure consistency with database state.
+     * Lists are invalidated on any write operation.
+     */
+    private Caffeine<Object, Object> buildListCache() {
+        return Caffeine.newBuilder()
+                .maximumSize(listCacheMaxSize)
+                .expireAfterWrite(listCacheExpireSeconds, TimeUnit.SECONDS)
                 .recordStats();
     }
 }

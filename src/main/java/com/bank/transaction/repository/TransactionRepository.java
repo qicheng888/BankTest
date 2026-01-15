@@ -1,30 +1,27 @@
 package com.bank.transaction.repository;
 
 import com.bank.transaction.entity.Transaction;
+import com.bank.transaction.mapper.TransactionMapper;
 import org.springframework.stereotype.Repository;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Transaction Repository
  * 
- * In-memory storage implementation for transactions.
- * Uses ConcurrentHashMap for thread-safe operations.
+ * Delegates all database operations to MyBatis TransactionMapper.
+ * Implements the same interface contract as the original ConcurrentHashMap
+ * implementation.
  */
 @Repository
 public class TransactionRepository {
 
-    /**
-     * Primary storage: ID -> Transaction
-     */
-    private final Map<String, Transaction> transactions = new ConcurrentHashMap<>();
+    private final TransactionMapper transactionMapper;
 
-    /**
-     * Index for duplicate detection: hash -> transaction ID
-     */
-    private final Map<String, String> duplicateIndex = new ConcurrentHashMap<>();
+    public TransactionRepository(TransactionMapper transactionMapper) {
+        this.transactionMapper = transactionMapper;
+    }
 
     /**
      * Save a new transaction
@@ -33,10 +30,11 @@ public class TransactionRepository {
      * @return the saved transaction
      */
     public Transaction save(Transaction transaction) {
-        transactions.put(transaction.getId(), transaction);
-        // Update duplicate index
-        String hash = transaction.generateDuplicateHash();
-        duplicateIndex.put(hash, transaction.getId());
+        if (transactionMapper.existsById(transaction.getId())) {
+            transactionMapper.update(transaction);
+        } else {
+            transactionMapper.insert(transaction);
+        }
         return transaction;
     }
 
@@ -47,7 +45,7 @@ public class TransactionRepository {
      * @return Optional containing the transaction if found
      */
     public Optional<Transaction> findById(String id) {
-        return Optional.ofNullable(transactions.get(id));
+        return transactionMapper.findById(id);
     }
 
     /**
@@ -56,7 +54,7 @@ public class TransactionRepository {
      * @return list of all transactions
      */
     public List<Transaction> findAll() {
-        return new ArrayList<>(transactions.values());
+        return transactionMapper.findAll();
     }
 
     /**
@@ -67,11 +65,8 @@ public class TransactionRepository {
      * @return paginated list of transactions
      */
     public List<Transaction> findAllPaginated(int page, int size) {
-        return transactions.values().stream()
-                .sorted(Comparator.comparing(Transaction::getTimestamp).reversed())
-                .skip((long) page * size)
-                .limit(size)
-                .collect(Collectors.toList());
+        int offset = page * size;
+        return transactionMapper.findAllPaginated(offset, size);
     }
 
     /**
@@ -80,7 +75,7 @@ public class TransactionRepository {
      * @return total number of transactions
      */
     public long count() {
-        return transactions.size();
+        return transactionMapper.count();
     }
 
     /**
@@ -90,14 +85,7 @@ public class TransactionRepository {
      * @return true if deleted, false if not found
      */
     public boolean deleteById(String id) {
-        Transaction removed = transactions.remove(id);
-        if (removed != null) {
-            // Remove from duplicate index
-            String hash = removed.generateDuplicateHash();
-            duplicateIndex.remove(hash);
-            return true;
-        }
-        return false;
+        return transactionMapper.deleteById(id) > 0;
     }
 
     /**
@@ -107,7 +95,7 @@ public class TransactionRepository {
      * @return true if exists
      */
     public boolean existsById(String id) {
-        return transactions.containsKey(id);
+        return transactionMapper.existsById(id);
     }
 
     /**
@@ -117,8 +105,11 @@ public class TransactionRepository {
      * @return true if a duplicate exists
      */
     public boolean existsDuplicate(Transaction transaction) {
-        String hash = transaction.generateDuplicateHash();
-        return duplicateIndex.containsKey(hash);
+        return transactionMapper.existsDuplicate(
+                transaction.getAmount(),
+                transaction.getType() != null ? transaction.getType().name() : null,
+                transaction.getCategory() != null ? transaction.getCategory().name() : null,
+                transaction.getDescription());
     }
 
     /**
@@ -130,16 +121,18 @@ public class TransactionRepository {
      * @return true if a duplicate exists
      */
     public boolean existsDuplicateExcluding(Transaction transaction, String excludeId) {
-        String hash = transaction.generateDuplicateHash();
-        String existingId = duplicateIndex.get(hash);
-        return existingId != null && !existingId.equals(excludeId);
+        return transactionMapper.existsDuplicateExcluding(
+                transaction.getAmount(),
+                transaction.getType() != null ? transaction.getType().name() : null,
+                transaction.getCategory() != null ? transaction.getCategory().name() : null,
+                transaction.getDescription(),
+                excludeId);
     }
 
     /**
      * Clear all transactions (useful for testing)
      */
     public void deleteAll() {
-        transactions.clear();
-        duplicateIndex.clear();
+        transactionMapper.deleteAll();
     }
 }

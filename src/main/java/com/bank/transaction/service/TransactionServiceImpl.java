@@ -16,6 +16,7 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -24,7 +25,8 @@ import java.util.UUID;
  * Transaction Service Implementation
  * 
  * Business logic for transaction management with caching support.
- * Updated for JDK 21 with Record DTOs.
+ * Uses @Transactional to ensure cache-data consistency.
+ * Cache operations occur AFTER successful database commits.
  */
 @Service
 public class TransactionServiceImpl implements TransactionService {
@@ -44,6 +46,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional
     @Caching(put = @CachePut(value = CacheConfig.TRANSACTION_CACHE, key = "#result.id"), evict = @CacheEvict(value = CacheConfig.TRANSACTION_LIST_CACHE, allEntries = true))
     public TransactionResponse createTransaction(TransactionRequest request) {
         logger.debug("Creating new transaction: {}", request);
@@ -58,14 +61,14 @@ public class TransactionServiceImpl implements TransactionService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        // Check for duplicates
+        // Check for duplicates before insert
         if (transactionRepository.existsDuplicate(transaction)) {
             throw new DuplicateTransactionException(
                     "Duplicate transaction detected: A transaction with the same amount, type, category and description already exists",
                     transaction.generateDuplicateHash());
         }
 
-        // Save transaction
+        // Save transaction to database
         Transaction saved = transactionRepository.save(transaction);
         logger.info("Created transaction with ID: {}", saved.getId());
 
@@ -73,6 +76,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     @Cacheable(value = CacheConfig.TRANSACTION_CACHE, key = "#id")
     public TransactionResponse getTransaction(String id) {
         logger.debug("Getting transaction by ID: {}", id);
@@ -84,6 +88,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     @Cacheable(value = CacheConfig.TRANSACTION_LIST_CACHE, key = "'page_' + #page + '_size_' + #size")
     public PageResponse<TransactionResponse> getAllTransactions(int page, int size) {
         logger.debug("Getting all transactions - page: {}, size: {}", page, size);
@@ -103,6 +108,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional
     @Caching(put = @CachePut(value = CacheConfig.TRANSACTION_CACHE, key = "#id"), evict = @CacheEvict(value = CacheConfig.TRANSACTION_LIST_CACHE, allEntries = true))
     public TransactionResponse updateTransaction(String id, TransactionRequest request) {
         logger.debug("Updating transaction ID: {} with data: {}", id, request);
@@ -128,7 +134,7 @@ public class TransactionServiceImpl implements TransactionService {
                     updated.generateDuplicateHash());
         }
 
-        // Save updated transaction
+        // Save updated transaction to database
         Transaction saved = transactionRepository.save(updated);
         logger.info("Updated transaction with ID: {}", saved.getId());
 
@@ -136,6 +142,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional
     @Caching(evict = {
             @CacheEvict(value = CacheConfig.TRANSACTION_CACHE, key = "#id"),
             @CacheEvict(value = CacheConfig.TRANSACTION_LIST_CACHE, allEntries = true)
