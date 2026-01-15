@@ -37,7 +37,10 @@ docker-compose up --build
 
 The application includes a modern, responsive web interface for managing transactions:
 
+**Access**: http://localhost:8080
+
 ![Transaction Management Web UI](docs/screenshot.png)
+
 
 | Feature | Description |
 |---------|-------------|
@@ -47,9 +50,10 @@ The application includes a modern, responsive web interface for managing transac
 | **Delete Transaction** | Confirmation dialog with undo protection |
 | **Real-time Feedback** | Toast notifications for all operations |
 
-**Access**: http://localhost:8080
 
 ## 📋 API Endpoints
+
+**Swagger UI**: http://localhost:8080/swagger-ui.html
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -59,7 +63,6 @@ The application includes a modern, responsive web interface for managing transac
 | `PUT` | `/api/transactions/{id}` | Update transaction |
 | `DELETE` | `/api/transactions/{id}` | Delete transaction |
 
-**Swagger UI**: http://localhost:8080/swagger-ui.html
 
 ## 🧪 Testing
 
