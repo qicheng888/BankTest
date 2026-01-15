@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: transaction-management
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=600s
+  thymeleaf:
+    cache: false
+    mode: HTML
+    encoding: UTF-8
+
+# Custom application properties
+app:
+  cache:
+    transaction:
+      max-size: 1000
+      expire-after-write-seconds: 600
+  pagination:
+    default-page-size: 10
+    max-page-size: 100
+
+logging:
+  level:
+    com.bank.transaction: DEBUG
+    org.springframework.cache: DEBUG

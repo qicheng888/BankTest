@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Management - Bank</title>
+    <meta name="description"
+        content="Bank Transaction Management System - Add, modify, delete and view transaction records">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-icon">💳</span>
+                    Transaction Management
+                </h1>
+                <p class="subtitle">Bank Transaction System</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Action Bar -->
+            <div class="action-bar">
+                <button class="btn btn-primary" onclick="showAddModal()">
+                    <span class="btn-icon">➕</span>
+                    Add Transaction
+                </button>
+                <div class="stats" id="stats">
+                    <span class="stat-item">Total: <strong id="totalCount">0</strong> records</span>
+                </div>
+            </div>
+
+            <!-- Transaction Table -->
+            <div class="table-container">
+                <table class="transaction-table" id="transactionTable">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Amount ($)</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Time</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionBody">
+                        <!-- Data will be loaded via JavaScript -->
+                    </tbody>
+                </table>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📋</div>
+                    <h3>No Transaction Records</h3>
+                    <p>Click "Add Transaction" button to create your first record</p>
+                </div>
+
+                <!-- Loading State -->
+                <div class="loading-state" id="loadingState">
+                    <div class="spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button class="page-btn" id="prevBtn" onclick="prevPage()" disabled>
+                    ◀ Previous
+                </button>
+                <span class="page-info" id="pageInfo">Page 1 of 1</span>
+                <button class="page-btn" id="nextBtn" onclick="nextPage()" disabled>
+                    Next ▶
+                </button>
+            </div>
+        </main>
+
+        <!-- Add/Edit Modal -->
+        <div class="modal" id="transactionModal">
+            <div class="modal-overlay" onclick="closeModal()"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Add Transaction</h2>
+                    <button class="close-btn" onclick="closeModal()">✕</button>
+                </div>
+                <form id="transactionForm" onsubmit="submitForm(event)">
+                    <input type="hidden" id="transactionId">
+
+                    <div class="form-group">
+                        <label for="amount">Amount ($) <span class="required">*</span></label>
+                        <input type="number" id="amount" name="amount" step="0.01" min="0.01"
+                            placeholder="Enter transaction amount" required>
+                        <span class="error-msg" id="amountError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="type">Transaction Type <span class="required">*</span></label>
+                        <select id="type" name="type" required>
+                            <option value="">Select transaction type</option>
+                            <option th:each="t : ${transactionTypes}" th:value="${t.name()}" th:text="${t.displayName}">
+                            </option>
+                        </select>
+                        <span class="error-msg" id="typeError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category">Category <span class="required">*</span></label>
+                        <select id="category" name="category" required>
+                            <option value="">Select category</option>
+                            <option th:each="c : ${transactionCategories}" th:value="${c.name()}"
+                                th:text="${c.displayName}"></option>
+                        </select>
+                        <span class="error-msg" id="categoryError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="3"
+                            placeholder="Enter transaction description (max 500 characters)" maxlength="500"></textarea>
+                        <span class="char-count"><span id="charCount">0</span>/500</span>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <span class="btn-text">Save</span>
+                            <span class="btn-loading" style="display: none;">
+                                <span class="spinner-small"></span> Processing...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="modal" id="deleteModal">
+            <div class="modal-overlay" onclick="closeDeleteModal()"></div>
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h2>Confirm Delete</h2>
+                    <button class="close-btn" onclick="closeDeleteModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p class="delete-warning">
+                        <span class="warning-icon">⚠️</span>
+                        Are you sure you want to delete this transaction? This action cannot be undone.
+                    </p>
+                    <div class="delete-info" id="deleteInfo"></div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                    <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast">
+            <span class="toast-icon" id="toastIcon"></span>
+            <span class="toast-message" id="toastMessage"></span>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentPage = 0;
+        let pageSize = 10;
+        let totalPages = 1;
+        let deleteId = null;
+
+        // API Base URL
+        const API_URL = '/api/transactions';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTransactions();
+            setupCharCounter();
+        });
+
+        // Load transactions with pagination
+        async function loadTransactions() {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_URL}?page=${currentPage}&size=${pageSize}`);
+                if (!response.ok) throw new Error('Failed to load');
+
+                const data = await response.json();
+                renderTransactions(data.content);
+                updatePagination(data);
+                document.getElementById('totalCount').textContent = data.totalElements;
+            } catch (error) {
+                showToast('Failed to load transactions: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Render transaction table
+        function renderTransactions(transactions) {
+            const tbody = document.getElementById('transactionBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (!transactions || transactions.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'flex';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            tbody.innerHTML = transactions.map(t => `
+                <tr>
+                    <td class="id-cell" title="${t.id}">${t.id.substring(0, 8)}...</td>
+                    <td class="amount-cell ${t.type === 'DEPOSIT' ? 'amount-positive' : 'amount-negative'}">
+                        ${t.type === 'DEPOSIT' ? '+' : '-'}$${formatNumber(t.amount)}
+                    </td>
+                    <td><span class="badge badge-${t.type.toLowerCase()}">${t.typeDisplayName}</span></td>
+                    <td><span class="badge badge-category">${t.categoryDisplayName}</span></td>
+                    <td class="desc-cell" title="${t.description || ''}">${t.description || '-'}</td>
+                    <td class="time-cell">${formatDate(t.timestamp)}</td>
+                    <td class="action-cell">
+                        <button class="action-btn edit-btn" onclick="editTransaction('${t.id}')" title="Edit">
+                            ✏️
+                        </button>
+                        <button class="action-btn delete-btn" onclick="showDeleteModal('${t.id}', ${t.amount})" title="Delete">
+                            🗑️
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Format number with commas
+        function formatNumber(num) {
+            return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Format date
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('en-US', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        // Update pagination
+        function updatePagination(data) {
+            totalPages = data.totalPages;
+            document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} of ${totalPages || 1}`;
+            document.getElementById('prevBtn').disabled = data.first;
+            document.getElementById('nextBtn').disabled = data.last;
+        }
+
+        function prevPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                loadTransactions();
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages - 1) {
+                currentPage++;
+                loadTransactions();
+            }
+        }
+
+        // Show/Hide loading
+        function showLoading(show) {
+            document.getElementById('loadingState').style.display = show ? 'flex' : 'none';
+            document.getElementById('transactionTable').style.display = show ? 'none' : 'table';
+        }
+
+        // Modal functions
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Transaction';
+            document.getElementById('transactionForm').reset();
+            document.getElementById('transactionId').value = '';
+            document.getElementById('charCount').textContent = '0';
+            clearErrors();
+            document.getElementById('transactionModal').classList.add('active');
+        }
+
+        async function editTransaction(id) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`);
+                if (!response.ok) throw new Error('Failed to get transaction details');
+
+                const transaction = await response.json();
+                document.getElementById('modalTitle').textContent = 'Edit Transaction';
+                document.getElementById('transactionId').value = transaction.id;
+                document.getElementById('amount').value = transaction.amount;
+                document.getElementById('type').value = transaction.type;
+                document.getElementById('category').value = transaction.category;
+                document.getElementById('description').value = transaction.description || '';
+                document.getElementById('charCount').textContent = (transaction.description || '').length;
+                clearErrors();
+                document.getElementById('transactionModal').classList.add('active');
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('transactionModal').classList.remove('active');
+        }
+
+        // Delete functions
+        function showDeleteModal(id, amount) {
+            deleteId = id;
+            document.getElementById('deleteInfo').innerHTML = `Transaction Amount: <strong>$${formatNumber(amount)}</strong>`;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            deleteId = null;
+        }
+
+        async function confirmDelete() {
+            if (!deleteId) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${deleteId}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.message || 'Delete failed');
+                }
+
+                showToast('Transaction deleted successfully', 'success');
+                closeDeleteModal();
+                loadTransactions();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Form submission
+        async function submitForm(event) {
+            event.preventDefault();
+            clearErrors();
+
+            const id = document.getElementById('transactionId').value;
+            const data = {
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.getElementById('type').value,
+                category: document.getElementById('category').value,
+                description: document.getElementById('description').value || null
+            };
+
+            // Client validation
+            if (!data.amount || data.amount <= 0) {
+                showError('amountError', 'Please enter a valid amount');
+                return;
+            }
+            if (!data.type) {
+                showError('typeError', 'Please select a transaction type');
+                return;
+            }
+            if (!data.category) {
+                showError('categoryError', 'Please select a category');
+                return;
+            }
+
+            setSubmitLoading(true);
+
+            try {
+                const url = id ? `${API_URL}/${id}` : API_URL;
+                const method = id ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    if (err.validationErrors) {
+                        Object.entries(err.validationErrors).forEach(([field, msg]) => {
+                            showError(`${field}Error`, msg);
+                        });
+                        throw new Error('Please check your input');
+                    }
+                    throw new Error(err.message || 'Operation failed');
+                }
+
+                showToast(id ? 'Transaction updated successfully' : 'Transaction created successfully', 'success');
+                closeModal();
+                loadTransactions();
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                setSubmitLoading(false);
+            }
+        }
+
+        function setSubmitLoading(loading) {
+            const btn = document.getElementById('submitBtn');
+            btn.querySelector('.btn-text').style.display = loading ? 'none' : 'inline';
+            btn.querySelector('.btn-loading').style.display = loading ? 'inline-flex' : 'none';
+            btn.disabled = loading;
+        }
+
+        function showError(id, message) {
+            document.getElementById(id).textContent = message;
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.error-msg').forEach(el => el.textContent = '');
+        }
+
+        // Character counter
+        function setupCharCounter() {
+            const textarea = document.getElementById('description');
+            textarea.addEventListener('input', () => {
+                document.getElementById('charCount').textContent = textarea.value.length;
+            });
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+
+            icon.textContent = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+            msg.textContent = message;
+            toast.className = `toast toast-${type} active`;
+
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>

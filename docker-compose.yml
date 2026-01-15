@@ -1,0 +1,24 @@
+services:
+  transaction-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hsbc-transaction-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - JAVA_OPTS=-Xms256m -Xmx512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/transactions?page=0&size=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - hsbc-network
+
+networks:
+  hsbc-network:
+    driver: bridge
